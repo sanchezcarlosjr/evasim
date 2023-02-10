@@ -3,4 +3,15 @@
   height: 100vh;
 }
 
+.a {
+  padding: 0px 0px;
+  margin: 0;
+  display: block;
+}
+
+.a svg {
+  display: inline;
+  vertical-align: middle;
+  width: 18px;
+}
 
