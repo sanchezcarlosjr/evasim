@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI%20Toolkit/menu/MenuWindow.uss?fileID=7433441132597879392&amp;guid=3a9b93606da6797cca418d17371c5d8b&amp;type=3#MenuWindow" />
+    <ui:VisualElement>
+        <ui:Label text="EvaSim" display-tooltip-when-elided="true" class="h1"/>
+        <ui:Button name="ButtonInteractionLoader" text="Load interaction" display-tooltip-when-elided="true" class="button"/>
+    </ui:VisualElement>
+</ui:UXML>

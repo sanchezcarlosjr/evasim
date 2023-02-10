@@ -1,0 +1,25 @@
+name: Deploy to Firebase Hosting
+on: 
+   workflow_dispatch:
+   pull_request:
+    branches:
+      - main
+
+jobs:
+  build_and_preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: echo "hello"
+      - uses: game-ci/unity-test-runner@v2
+        env:
+            UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+            projectPath: evasim
+            artifactsPath: public
+            githubToken: ${{ secrets.GITHUB_TOKEN }}
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ARSUS_PRODUCTION }}'
+          projectId: arsus-production
