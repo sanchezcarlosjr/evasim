@@ -1,5 +1,5 @@
 all:
-	 yarn --cwd terminal build && rm -rf public/terminal && mv terminal/dist/ public/terminal
+	 yarn --cwd terminal build
 
 deploy:
 	firebase deploy
