@@ -1,20 +1,8 @@
 import {AfterViewInit, Component, ViewChild} from '@angular/core';
-import {FunctionsUsingCSI, NgTerminal} from "ng-terminal";
+import {NgTerminal} from "ng-terminal";
 // @ts-ignore
 import LocalEchoController from 'local-echo';
-
-function exec(args: any) {
-  return new Function('', `
-    function connect(x) {
-      return x;
-    }
-    function clear() {
-        this.child?.underlying.clear();
-    }
-    const help = "connect - connects to EVAbot";
-    return ${args};
-  `);
-}
+import {Sandbox} from "./sandbox";
 
 @Component({
   selector: 'app-root', templateUrl: './app.component.html', styleUrls: ['./app.component.css']
@@ -57,11 +45,12 @@ export class AppComponent implements AfterViewInit {
     });
     const localEcho = new LocalEchoController();
     this.child?.underlying.loadAddon(localEcho);
+    const sandbox = new Sandbox(localEcho, this.child?.underlying);
     localEcho.println("EvaSim");
-    localEcho.println(`Type "help" for all available commands.`);
+    localEcho.println(`Type "help" for all available commands. EvaSim sandbox supports JavaScript.`);
     const read_and_eval_loop = () => localEcho.read("$ ")
       .then((input: any) => {
-        localEcho.println(exec(input)());
+        sandbox.exec(input);
         return read_and_eval_loop();
       })
       .catch((error: any) => {
