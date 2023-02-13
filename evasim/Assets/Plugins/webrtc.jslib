@@ -10,6 +10,9 @@ mergeInto(LibraryManager.library, {
 	peer_connection: () => {
 	    window.alert("PEER CONNECTION");
 	},
+	receive: (state, message) => {
+	    window.alert(message.message);
+	},
 	connection_open: () => {
 	    window.alert("CONNECTION OPEN");
 	},
