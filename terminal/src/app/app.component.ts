@@ -3,6 +3,7 @@ import {NgTerminal} from "ng-terminal";
 // @ts-ignore
 import LocalEchoController from 'local-echo';
 import {Sandbox} from "./sandbox";
+import {lastValueFrom} from "rxjs";
 
 @Component({
   selector: 'app-root', templateUrl: './app.component.html', styleUrls: ['./app.component.css']
@@ -12,7 +13,6 @@ export class AppComponent implements AfterViewInit {
   baseTheme = {
     foreground: '#EBDBB2',
     background: '#000000',
-    selectionBackground: '#282828',
     black: '#1E1E1D',
     brightBlack: '#262625',
     red: '#CE5C5C',
@@ -43,16 +43,16 @@ export class AppComponent implements AfterViewInit {
       cursorStyle: 'underline',
       logLevel: "off"
     });
+    const id = new URLSearchParams(document.location.search).get("session");
+    if (id !== null)
+      this.child?.write(`connect(${id})`);
     const localEcho = new LocalEchoController();
     this.child?.underlying.loadAddon(localEcho);
     const sandbox = new Sandbox(localEcho, this.child?.underlying);
     localEcho.println("EvaSim");
-    localEcho.println(`Type "help" for all available commands. EvaSim sandbox supports JavaScript.`);
+    localEcho.println(`Type "help()" for all available commands. EvaSim sandbox supports JavaScript.`);
     const read_and_eval_loop = () => localEcho.read("$ ")
-      .then((input: any) => {
-        sandbox.exec(input);
-        return read_and_eval_loop();
-      })
+      .then((input: any) => lastValueFrom(sandbox.exec(input)).then(() => read_and_eval_loop()))
       .catch((error: any) => {
         localEcho.println(`Error reading: ${error}`);
         return read_and_eval_loop();
