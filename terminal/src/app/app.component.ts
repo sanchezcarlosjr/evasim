@@ -1,5 +1,6 @@
 import {AfterViewInit, Component, ViewChild} from '@angular/core';
 import {NgTerminal} from "ng-terminal";
+import { WebLinksAddon } from 'xterm-addon-web-links';
 // @ts-ignore
 import LocalEchoController from 'local-echo';
 import {Sandbox} from "./sandbox";
@@ -45,6 +46,7 @@ export class AppComponent implements AfterViewInit {
     });
     const localEcho = new LocalEchoController();
     this.child?.underlying.loadAddon(localEcho);
+    this.child?.underlying.loadAddon(new WebLinksAddon());
     const sandbox = new Sandbox(localEcho, this.child?.underlying, window);
     localEcho.println("EvaSim");
     localEcho.println(`Type "help" for all available commands. EvaSim sandbox supports JavaScript.`);

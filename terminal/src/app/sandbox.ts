@@ -35,6 +35,11 @@ const getCircularReplacer = () => {
   };
 };
 
+enum Protocol {
+  MQTT = "MQTT",
+  WebRTC = "WebRTC"
+}
+
 export class Sandbox {
   constructor(private localEcho: any, private terminal: Terminal | undefined, private environment: any) {
     environment.tap = tap;
@@ -42,6 +47,7 @@ export class Sandbox {
     environment.reduce = reduce;
     environment.scan = scan;
     environment.generate = generate;
+    environment.P = Protocol;
     environment.delayWhen = delayWhen;
     environment.switchMap = switchMap;
     environment.fromFetch = (input: string | Request) => fromFetch(input).pipe(
@@ -54,15 +60,17 @@ export class Sandbox {
     environment.of = of;
     environment.from = from;
     environment.interval = interval;
+    environment.protocols =
     environment.take = take;
     environment.Peer = Peer;
     Object.defineProperty(environment, 'clear', {'get': () => of([true]).pipe(tap(_ => this.terminal?.clear()))});
     Object.defineProperty(environment, 'help', {
       'get': () => from([
         'clear - clears the terminal',
-        'connect(uid) - connects to protocol',
+        `connect(protocol, options) - connects to some node using a protocol and its options. You could use ${Object.keys(Protocol).join(",")} protocols.`,
         'echo(message) - displays the message on the terminal',
-        'fromFetch(input) - fetch some web api resource'
+        'fromFetch(input) - fetch some web api resource',
+        'Learn more on https://carlos-eduardo-sanchez-torres.sanchezcarlosjr.com/Assisting-dementia-patients-with-the-Embodied-Voice-Assistant-Eva-Simulator-at-CICESE-9aade1ebef9948acafba73d834b19d0b'
       ])
         .pipe(tap(message => this.localEcho.println(message)))
     });
@@ -92,11 +100,10 @@ export class Sandbox {
       switchMap((configuration: any) => observable.pipe(tap(next => configuration.connection.send(next))))
     );
     // @ts-ignore
-    environment.connect = (options: { protocol: string }) => protocols[options.protocol] ?
+    environment.connect = (protocol, options: any) => protocols[protocol] ?
       // @ts-ignore
-      (new protocols[options.protocol]()).connect(options).pipe(display) :
-      of({ error: true, message: `Error: ${options.protocol} is not available.` })
-      ;
+      (new protocols[protocol]()).connect(options).pipe(display) :
+      of({ error: true, message: `Error: ${protocol} is not available.` });
   }
 
   spawn(action: string) {
