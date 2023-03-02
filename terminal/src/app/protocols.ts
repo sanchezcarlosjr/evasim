@@ -69,7 +69,10 @@ export class MQTT implements Protocol {
     this.mqtt?.unsafePublish(options.topic, options.message, options.options);
   }
   connect(options: IMqttServiceOptions & {topic: string}) {
-    this.mqtt = new MqttService(options);
+    this.mqtt = new MqttService({
+      protocol: document.location.protocol == "https:" ? "wss" : "ws",
+      ...options,
+    });
     return this.mqtt?.observe(options.topic).pipe(
       tap((message) => console.log(message)),
       startWith({
