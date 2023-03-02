@@ -43,19 +43,11 @@ export class AppComponent implements AfterViewInit {
       cursorStyle: 'underline',
       logLevel: "off"
     });
-    const id = new URLSearchParams(document.location.search).get("session");
     const localEcho = new LocalEchoController();
     this.child?.underlying.loadAddon(localEcho);
-    const sandbox = new Sandbox(localEcho, this.child?.underlying);
+    const sandbox = new Sandbox(localEcho, this.child?.underlying, window);
     localEcho.println("EvaSim");
-    localEcho.println(`Type "help()" for all available commands. EvaSim sandbox supports JavaScript.`);
-    if (id !== null)
-      localEcho.read("$ connect(\"${id}\")")
-        .then((input: any) => lastValueFrom(sandbox.exec(`connect("${id}")`)).then(() => read_and_eval_loop()))
-        .catch((error: any) => {
-          localEcho.println(`Error reading: ${error}`);
-          return read_and_eval_loop();
-        })
+    localEcho.println(`Type "help" for all available commands. EvaSim sandbox supports JavaScript.`);
     const read_and_eval_loop = () => localEcho.read("$ ")
       .then((input: any) => lastValueFrom(sandbox.exec(input)).then(() => read_and_eval_loop()))
       .catch((error: any) => {

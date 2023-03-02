@@ -1,3 +1,17 @@
+function setup(state, subscriber) {
+  state.connection.on('data', function (data) {
+    try {
+      subscriber.receive(state, JSON.parse(data));
+    } catch (e) {
+      subscriber.receive(state, data);
+    }
+  });
+  state.connection.on('close', function () {
+    state.connection = null;
+    subscriber.close(state);
+  });
+}
+
 function startPeerConnection(subscriber) {
   const state = {
     connection: null,
@@ -13,6 +27,7 @@ function startPeerConnection(subscriber) {
       state.connection.on('open', function () {
         subscriber.connection_open(state);
       });
+      setup(state, subscriber);
     },
     join2: () => (state.join = state.real_join),
     join: (id) => {
@@ -26,13 +41,7 @@ function startPeerConnection(subscriber) {
   state.peer.on('connection', function (connection) {
     state.connection = connection;
     subscriber.peer_connection(state);
-    state.connection.on('data', function (data) {
-      subscriber.receive(state, JSON.parse(data));
-    });
-    state.connection.on('close', function () {
-      state.connection = null;
-      subscriber.close(state);
-    });
+    setup(state, subscriber);
   });
   state.peer.on('disconnected', function () {
     state.peer.reconnect();

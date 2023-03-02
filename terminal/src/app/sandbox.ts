@@ -1,112 +1,106 @@
 import {Terminal} from 'xterm';
-import {from, interval, Observable, of, Subject, Subscriber, tap, map, reduce} from 'rxjs';
+import {
+  from,
+  interval,
+  map,
+  startWith,
+  generate,
+  scan,
+  of,
+  reduce,
+  delayWhen,
+  tap,
+  filter,
+  take,
+  catchError,
+  switchMap,
+  pipe, mergeWith, fromEvent, Observable, lastValueFrom, takeWhile
+} from 'rxjs';
+import { fromFetch } from 'rxjs/fetch';
 import {Peer} from "peerjs";
 import "./peer";
-// @ts-ignore
-window.tap = tap;
-// @ts-ignore
-window.map = map;
-// @ts-ignore
-window.reduce = reduce;
-//@ts-ignore
-window.Peer = Peer;
+import * as protocols from './protocols';
 
-class PeerSubscriber {
-  private subscriber: any;
 
-  constructor() {
-  }
-
-  private _connection$: null | Subject<any> = null;
-
-  get connection$() {
-    return this._connection$;
-  }
-
-  join(uid: string) {
-    return new Observable((subscriber) => {
-      subscriber.next({"state": "Starting connection"});
-      //@ts-ignore
-      startPeerConnection(this.generate_subscriber(subscriber)).join(uid);
-    });
-  }
-
-  send(message: object) {
-  }
-
-  private generate_subscriber(subscriber: Subscriber<any>) {
-    this._connection$ = new Subject();
-    this.subscriber = {
-      assign_signal: (state: any) => {
-        state.join2();
-        subscriber.next({"state": "Assigning signal."});
-      },
-      connection_open: (state: any) => {
-        subscriber.next({"state": "Successful connection!"});
-        this.send = state.send;
-        subscriber.complete();
-      },
-      join_connection: () => {
-        subscriber.next({"state": "Joining to peer."});
-      },
-      close: () => {
-        (subscriber.closed ? this._connection$ : subscriber)?.complete();
-      },
-      receive: (state: any, message: object) => {
-        this._connection$?.next(message);
-      },
-      error: (state: any, error: any) => {
-        (subscriber.closed ? this._connection$ : subscriber)?.error(error);
-      },
-      disconnected: () => {
-        (subscriber.closed ? this._connection$ : subscriber)?.next({"state": `Disconnected!`});
+const getCircularReplacer = () => {
+  const seen = new WeakSet();
+  return (key: string, value: any) => {
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value) || value.bypass_parsing) {
+        return;
       }
-    };
-    return this.subscriber;
-  }
-}
-
+      seen.add(value);
+    }
+    return value;
+  };
+};
 
 export class Sandbox {
-  private peerSubscriber: null | PeerSubscriber;
-
-  constructor(private localEcho: any, private terminal: Terminal | undefined) {
-    this.peerSubscriber = null;
-  }
-
-  clear() {
-    return of([]).pipe(tap(_ => this.terminal?.clear()));
-  }
-
-  connect(uid: string) {
-    this.peerSubscriber = new PeerSubscriber();
-    return this.peerSubscriber.join(uid).pipe(tap((configuration: any) => this.localEcho.println(configuration.state)));
-  }
-
-  echo(message: string) {
-    if (!this.peerSubscriber)
-      throw new Error("Error in connection");
-    this.peerSubscriber.send({message});
-    return of(message).pipe(tap(uid => this.localEcho.println(message)));
-  }
-
-  interval$(period: number) {
-    return interval(period);
-  }
-
-  help() {
-    return from([
-      'clear() - clears the terminal',
-      'connect(uid) - connects to EVA',
-      'echo(message) - send a message to EVA',
-      'debug() - connects to current eva'
-    ])
-      .pipe(tap(message => this.localEcho.println(message)));
+  constructor(private localEcho: any, private terminal: Terminal | undefined, private environment: any) {
+    environment.tap = tap;
+    environment.map = map;
+    environment.reduce = reduce;
+    environment.scan = scan;
+    environment.generate = generate;
+    environment.delayWhen = delayWhen;
+    environment.switchMap = switchMap;
+    environment.fromFetch = (input: string | Request) => fromFetch(input).pipe(
+      switchMap((response: any) => response.ok ? response.json() : of({ error: true, message: `Error ${ response.status }` })),
+      catchError(err => of({ error: true, message: err.message }))
+    );
+    environment.startWith = startWith;
+    environment.randomBetween = (max = 0, min = 10) => Math.floor(Math.random() * (max - min + 1)) + min;
+    environment.filter = filter;
+    environment.of = of;
+    environment.from = from;
+    environment.interval = interval;
+    environment.take = take;
+    environment.Peer = Peer;
+    Object.defineProperty(environment, 'clear', {'get': () => of([true]).pipe(tap(_ => this.terminal?.clear()))});
+    Object.defineProperty(environment, 'help', {
+      'get': () => from([
+        'clear - clears the terminal',
+        'connect(uid) - connects to protocol',
+        'echo(message) - displays the message on the terminal',
+        'fromFetch(input) - fetch some web api resource'
+      ])
+        .pipe(tap(message => this.localEcho.println(message)))
+    });
+    environment.display = tap(observerOrNext => this.localEcho.println(JSON.stringify(observerOrNext, getCircularReplacer())));
+    environment.echo = (msg: any) => of(msg).pipe(environment.display);
+    const terminalDataObservable = new Observable((subscriber) => {
+      const read_and_eval_loop = () => localEcho.read("You: ")
+        .then((userInput: string) => {
+          subscriber.next(userInput);
+          read_and_eval_loop();
+        })
+        .catch((error: any) => {
+          subscriber.error(error);
+          return read_and_eval_loop();
+        });
+      read_and_eval_loop();
+    });
+    environment.chat = pipe(
+      filter((configuration: any) => configuration.ready),
+      switchMap(
+        (configuration) =>
+          terminalDataObservable.pipe(tap((userInput: any) => configuration.connection.send(userInput)
+      )))
+    );
+    environment.send = (observable: Observable<any>) => pipe(
+      filter((configuration: any) => configuration.ready),
+      switchMap((configuration: any) => observable.pipe(tap(next => configuration.connection.send(next))))
+    );
+    // @ts-ignore
+    environment.connect = (options: { protocol: string }) => protocols[options.protocol] ?
+      // @ts-ignore
+      (new protocols[options.protocol]()).connect(options).pipe(display) :
+      of({ error: true, message: `Error: ${options.protocol} is not available.` })
+      ;
   }
 
   spawn(action: string) {
-    // @ts-ignore
-    return new Function(`return this.${action}`).bind(this);
+    return new Function(`return ${action}`);
   }
 
   exec(action: string) {

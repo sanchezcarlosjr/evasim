@@ -34,7 +34,7 @@
           },
           "configurations": {
             "production": {
-	      "deployUrl": "terminal/",
+	            "deployUrl": "terminal/",
               "budgets": [
                 {
                   "type": "initial",
