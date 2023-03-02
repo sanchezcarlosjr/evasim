@@ -1,4 +1,11 @@
-import {Observable, Subscriber} from "rxjs";
+import {map, Observable, startWith, Subscriber, tap} from "rxjs";
+
+import {
+  IMqttMessage,
+  MqttModule,
+  IMqttServiceOptions, MqttService
+} from 'ngx-mqtt';
+
 
 export interface Protocol {
   connect: (options: any) => any;
@@ -56,6 +63,25 @@ export class WebRTC implements Protocol {
 }
 
 export class MQTT implements Protocol {
-  connect(options: any): any {
+  bypass_parsing = true;
+  private mqtt: MqttService | null = null;
+  send(options: any) {
+    this.mqtt?.unsafePublish(options.topic, options.message, options.options);
+  }
+  connect(options: IMqttServiceOptions & {topic: string}) {
+    this.mqtt = new MqttService(options);
+    return this.mqtt?.observe(options.topic).pipe(
+      tap((message) => console.log(message)),
+      startWith({
+        ready: true,
+        payload: "Successful connection!",
+        connection: this
+      }),
+      map((message) => ({
+        ready: true,
+        message: message.payload.toString(),
+        connection: this
+      }))
+    );
   }
 }
