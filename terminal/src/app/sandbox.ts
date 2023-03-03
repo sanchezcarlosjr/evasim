@@ -7,7 +7,7 @@ import {
   generate,
   interval,
   lastValueFrom,
-  map,
+  map, observable,
   Observable,
   of,
   pipe,
@@ -52,8 +52,23 @@ export class Sandbox {
     environment.scan = scan;
     environment.generate = generate;
     environment.P = Protocol;
+    environment.ChatGPT = (token: string) => (content: string) =>
+      new Request('https://api.openai.com/v1/chat/completions',
+        {
+          'method': 'POST',
+          headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`}, "body": JSON.stringify({
+            "model": "gpt-3.5-turbo",
+            "messages": [
+              {
+                "role": "user",
+                "content": content
+              }
+            ]
+          })
+        });
     environment.delayWhen = delayWhen;
     environment.switchMap = switchMap;
+    environment.s = (f: () => any) => of(f());
     environment.fromFetch = (input: string | Request) => fromFetch(input).pipe(
       switchMap((response: any) => response.ok ? response.json() : of({
         error: true,
@@ -82,15 +97,25 @@ export class Sandbox {
         .pipe(tap(message => this.localEcho.println(message)))
     });
     environment.display = tap(observerOrNext => this.localEcho.println(JSON.stringify(observerOrNext, getCircularReplacer())));
-    environment.echo = (msg: any) => of(msg).pipe(environment.display);
-    environment.chat = (observable: Observable<any> = this.repl("You: ")) => pipe(
+    environment.echo = (msg: any) =>  of(msg).pipe(filter((x) => !!x),environment.display);
+    environment.chat = (observable: any = this.repl("You: ")) => pipe(
       filter((configuration: any) => configuration.ready),
-      switchMap((configuration: any) => observable.pipe(tap(next => configuration.connection.send(next))))
+      switchMap((configuration: any) =>
+        (typeof observable === "function" ? observable(configuration.message) : observable).pipe(tap(next => configuration.connection.send(next))))
+    );
+    environment.gpt = (message: string) => environment.echo(message).pipe(
+      switchMap(() =>
+        environment.fromFetch(environment.ChatGPT(message))
+          .pipe(
+            environment.display,
+            map((response: any) => response.choices[environment.randomBetween(response.choices.length-1,0)].message.content)
+          )
+      )
     );
     // @ts-ignore
     environment.connect = (protocol, options: any) => protocols[protocol] ?
       // @ts-ignore
-      (new protocols[protocol]()).connect(options).pipe(display) :
+      (new protocols[protocol]()).connect(options) :
       of({error: true, message: `Error: ${protocol} is not available.`});
   }
 
@@ -110,12 +135,12 @@ export class Sandbox {
           read_and_eval_loop();
         })
         .catch((error: any) => {
-          this.localEcho.println(`ERROR: ${JSON.stringify(error, getCircularReplacer())}`);
+          this.localEcho.println(`ERROR: ${error}`);
           subscriber.error(error);
           return read_and_eval_loop();
         });
       read_and_eval_loop();
-    })
+    });
   }
 
   exec(action: string) {

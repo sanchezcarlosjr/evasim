@@ -21,7 +21,6 @@ export class WebRTC implements Protocol {
         subscriber?.complete();
         return;
       }
-      subscriber.next({"state": "Starting connection"});
       //@ts-ignore
       startPeerConnection(this.generate_subscriber(subscriber)).join(options.id);
     });
@@ -39,7 +38,6 @@ export class WebRTC implements Protocol {
     return {
       assign_signal: (state: any) => {
         state.join2();
-        subscriber.next({"state": "Assigning signal."});
       },
       connection_open: (state: any) => {
         this.send = state.send;
@@ -81,7 +79,7 @@ export class MQTT implements Protocol {
       tap((message) => console.log(message)),
       startWith({
         ready: true,
-        payload: "Successful connection!",
+        payload: "",
         connection: this
       }),
       map((message) => ({
