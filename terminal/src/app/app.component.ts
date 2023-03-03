@@ -1,10 +1,9 @@
 import {AfterViewInit, Component, ViewChild} from '@angular/core';
 import {NgTerminal} from "ng-terminal";
-import { WebLinksAddon } from 'xterm-addon-web-links';
+import {WebLinksAddon} from 'xterm-addon-web-links';
 // @ts-ignore
 import LocalEchoController from 'local-echo';
 import {Sandbox} from "./sandbox";
-import {lastValueFrom} from "rxjs";
 
 @Component({
   selector: 'app-root', templateUrl: './app.component.html', styleUrls: ['./app.component.css']
@@ -50,13 +49,7 @@ export class AppComponent implements AfterViewInit {
     const sandbox = new Sandbox(localEcho, this.child?.underlying, window);
     localEcho.println("EvaSim");
     localEcho.println(`Type "help" for all available commands. EvaSim sandbox supports JavaScript.`);
-    const read_and_eval_loop = () => localEcho.read("$ ")
-      .then((input: any) => lastValueFrom(sandbox.exec(input)).then(() => read_and_eval_loop()))
-      .catch((error: any) => {
-        localEcho.println(`Error reading: ${error}`);
-        return read_and_eval_loop();
-      });
-    read_and_eval_loop();
+    sandbox.repl().subscribe();
   }
 
 }

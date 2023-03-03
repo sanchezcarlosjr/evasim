@@ -1,10 +1,6 @@
 import {map, Observable, startWith, Subscriber, tap} from "rxjs";
 
-import {
-  IMqttMessage,
-  MqttModule,
-  IMqttServiceOptions, MqttService
-} from 'ngx-mqtt';
+import {IMqttServiceOptions, MqttService} from 'ngx-mqtt';
 
 
 export interface Protocol {
@@ -13,12 +9,18 @@ export interface Protocol {
 
 export class WebRTC implements Protocol {
   bypass_parsing = true;
-  private subscriber: Subscriber<any>| null = null;
+  private subscriber: Subscriber<any> | null = null;
+
   constructor() {
   }
 
   connect(options: { id: string }) {
     return new Observable((subscriber) => {
+      if (!options.id) {
+        subscriber?.error({"state": "error", "message": "The id is wrong."});
+        subscriber?.complete();
+        return;
+      }
       subscriber.next({"state": "Starting connection"});
       //@ts-ignore
       startPeerConnection(this.generate_subscriber(subscriber)).join(options.id);
@@ -65,10 +67,12 @@ export class WebRTC implements Protocol {
 export class MQTT implements Protocol {
   bypass_parsing = true;
   private mqtt: MqttService | null = null;
+
   send(options: any) {
     this.mqtt?.unsafePublish(options.topic, options.message, options.options);
   }
-  connect(options: IMqttServiceOptions & {topic: string}) {
+
+  connect(options: IMqttServiceOptions & { topic: string }) {
     this.mqtt = new MqttService({
       protocol: document.location.protocol == "https:" ? "wss" : "ws",
       ...options,

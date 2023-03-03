@@ -1,7 +1,7 @@
 function setup(state, subscriber) {
   state.connection.on('data', function (data) {
     try {
-      subscriber.receive(state, JSON.parse(data));
+      subscriber.receive(state, data);
     } catch (e) {
       subscriber.receive(state, data);
     }
@@ -16,7 +16,7 @@ function startPeerConnection(subscriber) {
   const state = {
     connection: null,
     peer: new Peer(),
-    send: (message) => state.connection === null ? -1 : state.connection.send(JSON.stringify(message)),
+    send: (message) => state.connection === null ? -1 : state.connection.send(message),
     real_join: (id) => {
       if (state.connection)
         state.connection.close();
