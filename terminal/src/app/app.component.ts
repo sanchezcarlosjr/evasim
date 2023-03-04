@@ -47,8 +47,8 @@ export class AppComponent implements AfterViewInit {
     this.child?.underlying.loadAddon(localEcho);
     this.child?.underlying.loadAddon(new WebLinksAddon());
     const sandbox = new Sandbox(localEcho, this.child?.underlying, window);
-    localEcho.println("EvaSim");
-    localEcho.println(`Type "help" for all available commands. EvaSim sandbox supports JavaScript.`);
+    localEcho.println("Eva Terminal");
+    localEcho.println(`Type "help" for all available commands. Eva Terminal supports JavaScript.`);
     sandbox.repl().subscribe();
   }
 
