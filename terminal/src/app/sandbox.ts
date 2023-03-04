@@ -84,6 +84,7 @@ export class Sandbox {
     environment.range = range;
     environment.of = of;
     environment.serialize = serialize;
+    environment.deserialize = (code: string) => new Function(`return ${code}`)()
     environment.from = from;
     environment.interval = interval;
     environment.take = take;
