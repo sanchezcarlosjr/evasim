@@ -25,6 +25,7 @@ function startPeerConnection(subscriber) {
       });
       setup(state, subscriber);
     },
+    destroy: () => state.peer.destroy(),
     join2: () => (state.join = state.real_join),
     join: (id) => {
       state.join2 = () => state.real_join(id);

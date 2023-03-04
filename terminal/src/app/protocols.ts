@@ -10,24 +10,28 @@ export interface Protocol {
 export class WebRTC implements Protocol {
   bypass_parsing = true;
   private subscriber: Subscriber<any> | null = null;
+  private state: any = null;
 
   constructor() {
   }
 
-  connect(options: { id: string }) {
+  connect(options?: { id: string }) {
     return new Observable((subscriber) => {
-      if (!options || !options?.id) {
-        //@ts-ignore
-        startPeerConnection(this.generate_subscriber(subscriber, options));
-        return;
-      }
       //@ts-ignore
-      startPeerConnection(this.generate_subscriber(subscriber, options)).join(options.id);
+      this.state = startPeerConnection(this.generate_subscriber(subscriber, options));
+      this.join(options);
     });
   }
 
   complete() {
+    this.state.destroy();
     this.subscriber?.complete();
+  }
+
+  join(options?: { id: string }) {
+    if (options && options.id) {
+      this.state?.join(options.id);
+    }
   }
 
   send(message: string) {
@@ -37,8 +41,8 @@ export class WebRTC implements Protocol {
     this.subscriber = subscriber;
     return {
       assign_signal: (state: any) => {
-        subscriber.next({"state": `Signal assignation successful!`, "id": `${state.peer.id}`});
-        if (!options || !options?.id) {
+        subscriber.next({"state": `Signal assignation successful!`, "id": `${state.peer.id}`, connection: this});
+        if (options && options.id) {
           state.join2();
         }
       },
