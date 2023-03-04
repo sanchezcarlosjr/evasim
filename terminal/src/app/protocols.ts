@@ -1,4 +1,4 @@
-import {map, Observable, startWith, Subscriber, tap} from "rxjs";
+import {map, Observable, Subscriber, tap} from "rxjs";
 
 import {IMqttServiceOptions, MqttService} from 'ngx-mqtt';
 
@@ -16,13 +16,13 @@ export class WebRTC implements Protocol {
 
   connect(options: { id: string }) {
     return new Observable((subscriber) => {
-      if (!options.id) {
-        subscriber?.error({"state": "error", "message": "The id is wrong."});
-        subscriber?.complete();
+      if (!options || !options?.id) {
+        //@ts-ignore
+        startPeerConnection(this.generate_subscriber(subscriber, options));
         return;
       }
       //@ts-ignore
-      startPeerConnection(this.generate_subscriber(subscriber)).join(options.id);
+      startPeerConnection(this.generate_subscriber(subscriber, options)).join(options.id);
     });
   }
 
@@ -30,33 +30,40 @@ export class WebRTC implements Protocol {
     this.subscriber?.complete();
   }
 
-  send(message: object) {
+  send(message: string) {
   }
 
-  private generate_subscriber(subscriber: Subscriber<any>) {
+  private generate_subscriber(subscriber: Subscriber<any>, options?: {id: string}) {
     this.subscriber = subscriber;
     return {
       assign_signal: (state: any) => {
-        state.join2();
+        subscriber.next({"state": `Signal assignation successful!`, "id": `${state.peer.id}`});
+        if (!options || !options?.id) {
+          state.join2();
+        }
+      },
+      peer_connection: (state: any) => {
+        this.send = state.send;
+        subscriber.next({"state": `Successful connection!`, ready: true, connection: this});
       },
       connection_open: (state: any) => {
         this.send = state.send;
-        subscriber.next({"state": "Successful connection!", ready: true, connection: this});
+        subscriber.next({"state": `Successful connection!`, ready: true, connection: this});
       },
       join_connection: () => {
-        subscriber.next({"state": "Joining to peer."});
       },
       close: () => {
+        subscriber?.next({"state": "Your peer have closed the connection", ready: false});
         subscriber?.complete();
       },
       receive: (state: any, message: object) => {
-        subscriber?.next({"state": "new message from peer", ready: true, message, connection: this});
+        subscriber?.next({"state": "New message from peer", ready: true, message, connection: this});
       },
       error: (state: any, error: any) => {
-        subscriber?.error({"state": "error", error: error.message});
+        subscriber?.error({"state": "Error", ready: true, error: error.message});
       },
       disconnected: () => {
-        subscriber?.next({"state": `Disconnected!`});
+        subscriber?.next({"state": `Disconnected!`, ready: true});
       }
     };
   }
@@ -77,11 +84,6 @@ export class MQTT implements Protocol {
     });
     return this.mqtt?.observe(options.topic).pipe(
       tap((message) => console.log(message)),
-      startWith({
-        ready: true,
-        payload: "",
-        connection: this
-      }),
       map((message) => ({
         ready: true,
         message: message.payload.toString(),

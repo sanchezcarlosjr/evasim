@@ -3,20 +3,23 @@ import {
   catchError,
   delayWhen,
   filter,
+  finalize,
   from,
   generate,
   interval,
-  lastValueFrom,
-  map, observable,
+  map,
   Observable,
   of,
   pipe,
+  range,
   reduce,
   scan,
   startWith,
+  Subscriber,
   switchMap,
   take,
-  tap
+  tap,
+  throwError, timer, zip
 } from 'rxjs';
 import {fromFetch} from 'rxjs/fetch';
 import {Peer} from "peerjs";
@@ -68,22 +71,24 @@ export class Sandbox {
         });
     environment.delayWhen = delayWhen;
     environment.switchMap = switchMap;
-    environment.s = (f: () => any) => of(f());
+    environment.s = (f: (environment: any) => any) => of(f(environment));
     environment.fromFetch = (input: string | Request) => fromFetch(input).pipe(
-      switchMap((response: any) => response.ok ? response.json() : of({
-        error: true,
-        message: `Error ${response.status}`
-      })),
+      switchMap((response: any) => response.ok ? response.json() :
+        of({error: true, message: `Error ${response.status}`})
+      ),
       catchError(err => of({error: true, message: err.message}))
     );
     environment.startWith = startWith;
     environment.randomBetween = (max = 0, min = 10) => Math.floor(Math.random() * (max - min + 1)) + min;
     environment.filter = filter;
+    environment.range = range;
     environment.of = of;
     environment.serialize = serialize;
     environment.from = from;
     environment.interval = interval;
     environment.take = take;
+    environment.zip = zip;
+    environment.timer = timer;
     environment.Peer = Peer;
     Object.defineProperty(environment, 'clear', {'get': () => of([true]).pipe(tap(_ => this.terminal?.clear()))});
     Object.defineProperty(environment, 'help', {
@@ -97,7 +102,7 @@ export class Sandbox {
         .pipe(tap(message => this.localEcho.println(message)))
     });
     environment.display = tap(observerOrNext => this.localEcho.println(JSON.stringify(observerOrNext, getCircularReplacer())));
-    environment.echo = (msg: any) =>  of(msg).pipe(filter((x) => !!x),environment.display);
+    environment.echo = (msg: any) => of(msg).pipe(filter((x) => !!x), environment.display);
     environment.chat = (observable: any = this.repl("You: ")) => pipe(
       filter((configuration: any) => configuration.ready),
       switchMap((configuration: any) =>
@@ -108,15 +113,15 @@ export class Sandbox {
         environment.fromFetch(environment.ChatGPT(message))
           .pipe(
             environment.display,
-            map((response: any) => response.choices[environment.randomBetween(response.choices.length-1,0)].message.content)
+            map((response: any) => response.choices[environment.randomBetween(response.choices.length - 1, 0)].message.content)
           )
       )
     );
     // @ts-ignore
-    environment.connect = (protocol, options: any) => protocols[protocol] ?
+    environment.connect = (protocol: string, options: any) => protocols[protocol] ?
       // @ts-ignore
       (new protocols[protocol]()).connect(options) :
-      of({error: true, message: `Error: ${protocol} is not available.`});
+      of({error: true, message: `Error: ${protocol} is not available.`})
   }
 
   spawn(action: string) {
@@ -124,23 +129,19 @@ export class Sandbox {
   }
 
   repl(prompt = "$ ") {
-    return new Observable((subscriber) => {
-      const read_and_eval_loop = () => this.localEcho.read(prompt)
-        .then(async (userInput: string) => {
-          if (userInput === "exit") {
-            subscriber.complete();
-            return;
-          }
-          subscriber.next(await lastValueFrom(this.exec(userInput)));
-          read_and_eval_loop();
-        })
-        .catch((error: any) => {
-          this.localEcho.println(`ERROR: ${error}`);
-          subscriber.error(error);
-          return read_and_eval_loop();
-        });
+    let read_and_eval_loop = () => {
+    };
+    let read_and_eval_loop_generator = (subscriber: Subscriber<string>) => () => this.localEcho.read(prompt)
+      .then((userInput: string) => subscriber.next(userInput))
+      .catch((error: any) => {
+        this.localEcho.println(`ERROR: ${error}`);
+        subscriber.error(error);
+        return read_and_eval_loop();
+      });
+    return new Observable((subscriber: Subscriber<string>) => {
+      read_and_eval_loop = read_and_eval_loop_generator(subscriber);
       read_and_eval_loop();
-    });
+    }).pipe(switchMap((userInput: string) => this.exec(userInput).pipe(finalize(() => read_and_eval_loop()))));
   }
 
   exec(action: string) {

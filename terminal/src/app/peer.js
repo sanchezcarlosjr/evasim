@@ -1,10 +1,6 @@
 function setup(state, subscriber) {
   state.connection.on('data', function (data) {
-    try {
-      subscriber.receive(state, data);
-    } catch (e) {
-      subscriber.receive(state, data);
-    }
+    subscriber.receive(state, data);
   });
   state.connection.on('close', function () {
     state.connection = null;
