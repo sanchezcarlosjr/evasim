@@ -89,6 +89,7 @@ export class Sandbox {
     environment.take = take;
     environment.zip = zip;
     environment.timer = timer;
+    environment.pipe = pipe;
     environment.Peer = Peer;
     Object.defineProperty(environment, 'clear', {'get': () => of([true]).pipe(tap(_ => this.terminal?.clear()))});
     Object.defineProperty(environment, 'help', {
@@ -108,6 +109,7 @@ export class Sandbox {
       switchMap((configuration: any) =>
         (typeof observable === "function" ? observable(configuration.message) : observable).pipe(tap(next => configuration.connection.send(next))))
     );
+    environment.repl = this.repl;
     environment.gpt = (message: string) => environment.echo(message).pipe(
       switchMap(() =>
         environment.fromFetch(environment.ChatGPT(message))
