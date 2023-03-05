@@ -17,9 +17,9 @@ import {
   startWith,
   Subscriber,
   switchMap,
-  take,
+  take, takeUntil, takeWhile,
   tap,
-  throwError, timer, zip
+  timer, zip
 } from 'rxjs';
 import {fromFetch} from 'rxjs/fetch';
 import {Peer} from "peerjs";
@@ -136,15 +136,42 @@ export class Sandbox {
     };
     let read_and_eval_loop_generator = (subscriber: Subscriber<string>) => () => this.localEcho.read(prompt)
       .then((userInput: string) => subscriber.next(userInput))
-      .catch((error: any) => {
-        this.localEcho.println(`ERROR: ${error}`);
-        subscriber.error(error);
-        return read_and_eval_loop();
-      });
+      .catch((error: any) => {});
     return new Observable((subscriber: Subscriber<string>) => {
       read_and_eval_loop = read_and_eval_loop_generator(subscriber);
       read_and_eval_loop();
-    }).pipe(switchMap((userInput: string) => this.exec(userInput).pipe(finalize(() => read_and_eval_loop()))));
+    }).pipe(
+      switchMap((userInput: string) =>
+        {
+          try {
+            if (!userInput) {
+              read_and_eval_loop();
+              return [];
+            }
+            let complete = false;
+            this.terminal?.onData((x) => complete = x === "\x03");
+            return this.exec(userInput).pipe(
+              takeWhile(() => !complete),
+              finalize(() => read_and_eval_loop())
+            )
+          } catch (e: any) {
+            if (
+              e instanceof SyntaxError ||
+              e instanceof  ReferenceError ||
+              e instanceof TypeError ||
+              e instanceof RangeError ||
+              e instanceof URIError
+            ) {
+              this.localEcho.println(`\x1b[31m${e.name}: ${e.message}\x1b[0m`);
+              read_and_eval_loop();
+              return [];
+            }
+            this.localEcho.println(`\x1b[31m${e.name}: ${e.message}\x1b[0m`);
+            return [];
+          }
+        }
+      )
+    );
   }
 
   exec(action: string) {
