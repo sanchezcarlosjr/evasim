@@ -17,7 +17,8 @@ import {
   startWith,
   Subscriber,
   switchMap,
-  take, takeUntil, takeWhile,
+  take,
+  takeWhile,
   tap,
   timer, zip
 } from 'rxjs';
@@ -28,19 +29,6 @@ import * as serialize from 'serialize-javascript';
 import "./peer";
 import * as protocols from './protocols';
 
-
-const getCircularReplacer = () => {
-  const seen = new WeakSet();
-  return (key: string, value: any) => {
-    if (typeof value === "object" && value !== null) {
-      if (seen.has(value) || value.bypass_parsing) {
-        return;
-      }
-      seen.add(value);
-    }
-    return value;
-  };
-};
 
 enum Protocol {
   MQTT = "MQTT",
@@ -103,7 +91,9 @@ export class Sandbox {
       ])
         .pipe(tap(message => this.localEcho.println(message)))
     });
-    environment.display = tap(observerOrNext => this.localEcho.println(JSON.stringify(observerOrNext, getCircularReplacer())));
+    environment.display = tap(observerOrNext => this.localEcho.println(serialize(observerOrNext)));
+    environment.write = tap((observerOrNext: string) => this.terminal?.write(observerOrNext));
+    environment.printWide = tap(observerOrNext => this.localEcho.printWide(observerOrNext));
     environment.echo = (msg: any) => of(msg).pipe(filter((x) => !!x), environment.display);
     environment.chat = (observable: any = this.repl("You: ")) => pipe(
       filter((configuration: any) => configuration.ready),

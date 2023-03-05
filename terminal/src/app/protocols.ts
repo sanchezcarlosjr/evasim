@@ -8,7 +8,6 @@ export interface Protocol {
 }
 
 export class WebRTC implements Protocol {
-  bypass_parsing = true;
   private subscriber: Subscriber<any> | null = null;
   private state: any = null;
 
@@ -35,6 +34,10 @@ export class WebRTC implements Protocol {
   }
 
   send(message: string) {
+  }
+
+  toJSON() {
+    return undefined;
   }
 
   private generate_subscriber(subscriber: Subscriber<any>, options?: {id: string}) {
@@ -74,11 +77,14 @@ export class WebRTC implements Protocol {
 }
 
 export class MQTT implements Protocol {
-  bypass_parsing = true;
   private mqtt: MqttService | null = null;
 
   send(options: any) {
     this.mqtt?.unsafePublish(options.topic, options.message, options.options);
+  }
+
+  toJSON() {
+    return undefined;
   }
 
   connect(options: IMqttServiceOptions & { topic: string }) {
