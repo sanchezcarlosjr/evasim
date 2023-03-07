@@ -93,10 +93,10 @@ export class MQTT implements Protocol {
       ...options,
     });
     return this.mqtt?.observe(options.topic).pipe(
-      tap((message) => console.log(message)),
       map((message) => ({
         ready: true,
-        message: message.payload.toString(),
+        // @ts-ignore
+        message: serialize(message.payload.toString()),
         connection: this
       }))
     );
