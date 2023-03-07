@@ -49,7 +49,7 @@ export class AppComponent implements AfterViewInit {
     const sandbox = new Sandbox(localEcho, this.child?.underlying, window);
     localEcho.println("Eva Terminal");
     localEcho.println(`Type "help" for all available commands. Eva Terminal supports JavaScript.`);
-    sandbox.repl().subscribe();
+    sandbox.repl("$ ").subscribe();
   }
 
 }

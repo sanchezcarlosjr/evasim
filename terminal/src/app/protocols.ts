@@ -1,4 +1,4 @@
-import {map, Observable, Subscriber, tap} from "rxjs";
+import {map, Observable, Subscriber} from "rxjs";
 
 import {IMqttServiceOptions, MqttService} from 'ngx-mqtt';
 
@@ -40,11 +40,19 @@ export class WebRTC implements Protocol {
     return undefined;
   }
 
-  private generate_subscriber(subscriber: Subscriber<any>, options?: {id: string}) {
+  private generate_subscriber(subscriber: Subscriber<any>, options?: { id: string }) {
     this.subscriber = subscriber;
     return {
       assign_signal: (state: any) => {
-        subscriber.next({"state": `Signal assignation successful!`, "id": `${state.peer.id}`, connection: this});
+        const command = `connect("WebRTC", {id: "${state.peer.id}"}).pipe(display,chat())`;
+        subscriber.next(
+          {
+            state: `Signal assignation successful!`,
+            id: `${state.peer.id}`,
+            url: `${new URL(window.location.toString()).origin}/?checkpoint=${btoa(command)}`,
+            connection: this
+          }
+        );
         if (options && options.id) {
           state.join2();
         }

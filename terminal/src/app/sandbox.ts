@@ -29,6 +29,7 @@ import {Peer} from "peerjs";
 import * as serialize from 'serialize-javascript';
 import "./peer";
 import * as protocols from './protocols';
+import * as database from "./database";
 
 
 enum Protocol {
@@ -40,16 +41,7 @@ function throwError(error: Error) {
   throw error;
 }
 
-function retrieve(key: string) {
-  return sessionStorage.getItem(key);
-}
 
-function save(key: string, value: string | null) : string | null {
-  if (!value)
-    return null;
-  sessionStorage.setItem(key, value);
-  return value;
-}
 
 function generateChatGPTRequest(content: string) {
   return new Request('https://api.openai.com/v1/chat/completions',
@@ -57,7 +49,7 @@ function generateChatGPTRequest(content: string) {
       'method': 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${retrieve("token-OpenIA") ?? save("token-OpenIA", prompt("Write your OpenAI Token. We save tokens on your session storage. We don't save any tokens afterward.")) ?? throwError(new Error("You have got to save a token for Open IA"))}`
+        'Authorization': `Bearer ${database.retrieveTemporally("token-OpenIA") ?? database.saveTemporally("token-OpenIA", prompt("Write your OpenAI Token. We save tokens on your session storage. We don't save any tokens afterward.")) ?? throwError(new Error("You have got to save a token for Open IA"))}`
       }, "body": JSON.stringify({
         "model": "gpt-3.5-turbo",
         "messages": [
@@ -72,6 +64,8 @@ function generateChatGPTRequest(content: string) {
 
 export class Sandbox {
   constructor(private localEcho: any, private terminal: Terminal | undefined, private environment: any) {
+    const checkpoints = database.retrieve("checkpoint").split(";");
+    checkpoints.forEach(checkpoint => localEcho.history.push(checkpoint));
     environment.tap = tap;
     environment.map = map;
     environment.reduce = reduce;
@@ -93,7 +87,7 @@ export class Sandbox {
     environment.range = range;
     environment.of = of;
     environment.serialize = serialize;
-    environment.deserialize = (code: string) => new Function(`return ${code}`)()
+    environment.deserialize = (code: string) => new Function(`return ${code}`)();
     environment.from = from;
     environment.interval = interval;
     environment.speak = tap((text: string) => window.speechSynthesis.speak(new SpeechSynthesisUtterance(text.toString())));
@@ -113,7 +107,7 @@ export class Sandbox {
       ])
         .pipe(tap(message => this.localEcho.println(message)))
     });
-    environment.display = tap(observerOrNext => this.localEcho.println(serialize(observerOrNext)));
+    environment.display = tap(observerOrNext => this.localEcho.println(serialize(observerOrNext).replace(/\\u002F/g, "/")));
     environment.jp = jp;
     environment.jpquery = (path: string) => map((ob: object) => jp.query(ob,path));
     environment.jpapply = (path: string, fn: (x: any) => any) => map((ob: object) => jp.apply(ob,path,fn));
@@ -151,12 +145,24 @@ export class Sandbox {
   repl(prompt = "$ ") {
     let read_and_eval_loop = () => {
     };
-    let read_and_eval_loop_generator = (subscriber: Subscriber<string>) => () => this.localEcho.read(prompt)
-      .then((userInput: string) => subscriber.next(userInput))
-      .catch((error: any) => {});
+    let read_and_eval_loop_generator = (subscriber: Subscriber<string>) => () => {
+      this.localEcho.read(prompt)
+        .then((userInput: string) => {
+          if (prompt === "$ ") {
+            database.save("checkpoint", userInput);
+          }
+          subscriber.next(userInput);
+        })
+        .catch((error: any) => {});
+    };
     return new Observable((subscriber: Subscriber<string>) => {
       read_and_eval_loop = read_and_eval_loop_generator(subscriber);
       read_and_eval_loop();
+      const lastValue = this.localEcho.history.entries[Math.max(0,this.localEcho.history.cursor-1)];
+      if (prompt === "$ " && lastValue) {
+        this.localEcho.setInput(lastValue);
+        this.localEcho.setCursor(lastValue.length);
+      }
     }).pipe(
       switchMap((userInput: string) =>
         {
@@ -169,7 +175,9 @@ export class Sandbox {
             this.terminal?.onData((x) => complete = x === "\x03");
             return this.exec(userInput).pipe(
               takeWhile(() => !complete),
-              finalize(() => read_and_eval_loop())
+              finalize(() => {
+                read_and_eval_loop();
+              })
             )
           } catch (e: any) {
             if (
