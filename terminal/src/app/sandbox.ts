@@ -184,6 +184,7 @@ export class Sandbox {
               return [];
             }
             this.localEcho.println(`\x1b[31m${e.name}: ${e.message}\x1b[0m`);
+            read_and_eval_loop();
             return [];
           }
         }
