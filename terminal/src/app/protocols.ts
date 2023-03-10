@@ -1,4 +1,4 @@
-import {map, Observable, Subscriber} from "rxjs";
+import {map, Observable, startWith, Subscriber} from "rxjs";
 
 import {IMqttServiceOptions, MqttService} from 'ngx-mqtt';
 
@@ -101,10 +101,14 @@ export class MQTT implements Protocol {
       ...options,
     });
     return this.mqtt?.observe(options.topic).pipe(
+      startWith({
+        ready: true,
+        connection: this
+      }),
       map((message) => ({
         ready: true,
         // @ts-ignore
-        message: serialize(message.payload.toString()),
+        message: eval(`(${message.payload.toString()})`),
         connection: this
       }))
     );
