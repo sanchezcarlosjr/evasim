@@ -22,10 +22,8 @@
     "local-echo": "github:wavesoft/local-echo",
     "ng-terminal": "^5.4.0",
     "ngx-mqtt": "^15.0.0-alpha.1",
-    "observable-webworker": "^4.0.1",
     "peerjs": "^1.4.7",
     "rxjs": "~7.8.0",
-    "serialize-javascript": "^6.0.1",
     "tslib": "^2.3.0",
     "xterm-addon-web-links": "^0.8.0",
     "zone.js": "~0.12.0"

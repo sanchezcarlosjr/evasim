@@ -71,8 +71,8 @@ export class WebRTC implements Protocol {
         subscriber?.next({"state": "Your peer have closed the connection", ready: false});
         subscriber?.complete();
       },
-      receive: (state: any, message: object) => {
-        subscriber?.next({"state": "New message from peer", ready: true, message, connection: this});
+      receive: (state: any, message: string) => {
+        subscriber?.next({"state": "New message from peer", ready: true, message: JSON.parse(message), connection: this});
       },
       error: (state: any, error: any) => {
         subscriber?.error({"state": "Error", ready: true, error: error.message});
@@ -108,7 +108,7 @@ export class MQTT implements Protocol {
       map((message) => ({
         ready: true,
         // @ts-ignore
-        message: eval(`(${message.payload.toString()})`),
+        message: JSON.parse(message.payload.toString()),
         connection: this
       }))
     );

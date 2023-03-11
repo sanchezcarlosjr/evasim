@@ -3,7 +3,7 @@ import {NgTerminal} from "ng-terminal";
 import {WebLinksAddon} from 'xterm-addon-web-links';
 // @ts-ignore
 import LocalEchoController from 'local-echo';
-import {Sandbox} from "./sandbox";
+import {Shell} from "./shell/shell";
 
 @Component({
   selector: 'app-root', templateUrl: './app.component.html', styleUrls: ['./app.component.css']
@@ -46,10 +46,8 @@ export class AppComponent implements AfterViewInit {
     const localEcho = new LocalEchoController();
     this.child?.underlying.loadAddon(localEcho);
     this.child?.underlying.loadAddon(new WebLinksAddon());
-    const sandbox = new Sandbox(localEcho, this.child?.underlying, window);
-    localEcho.println("Eva Terminal");
-    localEcho.println(`Type "help" for all available commands. Eva Terminal supports JavaScript.`);
-    sandbox.repl("$ ").subscribe();
+    const shell = new Shell(localEcho, this.child, window);
+    shell.start();
   }
 
 }
