@@ -7,10 +7,20 @@ import List from '@editorjs/list';
 // @ts-ignore
 import Marker from '@editorjs/marker';
 import {retrieve, Shell} from "./shell/shell";
-
+// @ts-ignore
+import Alert from 'editorjs-alert';
 // @ts-ignore
 import Checklist from '@editorjs/checklist';
+// @ts-ignore
+import Embed from '@editorjs/embed';
+// @ts-ignore
+import InlineImage from 'editorjs-inline-image';
+// @ts-ignore
+import Button from "./Button.js";
 import {Cell} from "./cell";
+import {unsplash_access_key} from "../env/env.prod";
+// @ts-ignore
+import BreakLine from 'editorjs-break-line';
 
 
 @Component({
@@ -42,9 +52,39 @@ export class AppComponent implements OnInit {
             language: 'javascript'
           }
         },
+        button: {
+          class: Button,
+          inlineToolbar: false,
+        },
         checklist: {
           class: Checklist,
           inlineToolbar: true,
+        },
+        breakLine: {
+          class: BreakLine,
+          inlineToolbar: true,
+        },
+        embed: Embed,
+        image: {
+          class: InlineImage,
+          inlineToolbar: true,
+          config: {
+            embed: {
+              display: true,
+            },
+            unsplash: {
+              appName: 'Eva Notebook',
+              clientId: unsplash_access_key
+            }
+          }
+        },
+        alert: {
+          class: Alert,
+          inlineToolbar: true,
+          config: {
+            defaultType: 'primary',
+            messagePlaceholder: 'Enter something'
+          },
         }
       }
     });

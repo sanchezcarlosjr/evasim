@@ -21,6 +21,10 @@ export class Shell {
   private jobs = new Map<string, {worker: Worker, code: string, status: number, data: {}, subscription: Subscription; }>();
   constructor(private editor: EditorJS, private environment: any) {
     environment.addEventListener('terminal.clear', () => {});
+    environment.addEventListener('shell.Fork', (event: CustomEvent) => {
+      this.editor.blocks.insert('code', {code: event.detail.code, language: 'javascript'});
+      this.editor.blocks.getBlockByIndex(this.editor.blocks.getCurrentBlockIndex())?.call('dispatchShellRun');
+    });
     environment.addEventListener('shell.Run', (event: CustomEvent) => {
       this.editor.blocks.getById(event.detail.payload.threadId)?.call('resetOutput');
       this.editor.blocks.getById(event.detail.payload.threadId)?.call('run');

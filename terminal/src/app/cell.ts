@@ -23,9 +23,6 @@ export class Cell extends EditorjsCodeflask {
 
   constructor(obj: any) {
     super(obj);
-    //@ts-ignore
-    console.log(obj.data);
-
     this.id = obj.block.id;
     // @ts-ignore
     this.readOnly = obj.data.readOnly;
@@ -80,6 +77,28 @@ export class Cell extends EditorjsCodeflask {
     this.resetOutput();
   }
 
+  dispatchShellRun() {
+    window.dispatchEvent(new CustomEvent('shell.Run', {
+      bubbles: true, detail: {
+        payload: {
+          // @ts-ignore
+          code: this.data.editorInstance.code,
+          threadId: this.id
+        }
+      }
+    }));
+  }
+
+  dispatchShellStop() {
+    window.dispatchEvent(new CustomEvent('shell.Stop', {
+      bubbles: true, detail: {
+        payload: {
+          threadId: this.id
+        }
+      }
+    }));
+  }
+
   render() {
     const element = super.render();
     this.cell = document.createElement('section');
@@ -89,6 +108,7 @@ export class Cell extends EditorjsCodeflask {
     editor.appendChild(element);
     this.cell.appendChild(editor);
     this.cell.append(document.createElement('div'));
+    this.cell.children[1].classList.add('progress');
     const output = document.createElement('pre');
     output.classList.add('output');
     this.cell.appendChild(output);
@@ -98,24 +118,10 @@ export class Cell extends EditorjsCodeflask {
     element.addEventListener('keydown', (keyboardEvent: KeyboardEvent) => {
       if (keyboardEvent.key === "m" && keyboardEvent.ctrlKey && keyboardEvent.altKey) {
         keyboardEvent.preventDefault();
-        window.dispatchEvent(new CustomEvent('shell.Run', {
-          bubbles: true, detail: {
-            payload: {
-              // @ts-ignore
-              code: this.data.editorInstance.code,
-              threadId: this.id
-            }
-          }
-        }));
+        this.dispatchShellRun();
       }
       if (keyboardEvent.key === "c" && keyboardEvent.ctrlKey) {
-        window.dispatchEvent(new CustomEvent('shell.Stop', {
-          bubbles: true, detail: {
-            payload: {
-              threadId: this.id
-            }
-          }
-        }));
+        this.dispatchShellStop();
       }
     }, false);
     return this.cell;
