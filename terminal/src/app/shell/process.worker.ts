@@ -1,5 +1,3 @@
-const window = self;
-
 import * as rx from "rxjs";
 import {
   catchError,
@@ -7,7 +5,7 @@ import {
   filter,
   from,
   interval,
-  map,
+  map, Observable,
   of, pipe,
   range,
   reduce,
@@ -18,6 +16,7 @@ import {
   throwError
 } from "rxjs";
 import {fromFetch} from "rxjs/fetch";
+import * as protocols from '../protocols';
 import * as jp from 'jsonpath';
 
 function sendMessage(message: any) {
@@ -159,8 +158,21 @@ class ProcessWorker {
     environment.filter = filter;
     environment.range = range;
     environment.delayWhen = delayWhen;
-    environment.serialize = (obj: any) => JSON.stringify(obj);
-    environment.deserialize = (code: string) => JSON.parse(code);
+    environment.serialize = (obj: any) => {
+      try {
+        console.log(obj);
+        return JSON.stringify(obj);
+      } catch (e) {
+        return obj.toString();
+      }
+    };
+    environment.deserialize = (code: string) => {
+      try {
+        return JSON.parse(code);
+      } catch (e) {
+        return code;
+      }
+    };
     environment.from = from;
     environment.of = of;
     environment.interval = interval;
@@ -168,7 +180,18 @@ class ProcessWorker {
     environment.take = take;
     environment.switchMap = switchMap;
     environment.rx = rx;
-    environment.display = (f = (x: any) => x) => tap(observerOrNext => this.localEcho.println(environment.serialize(f(observerOrNext)).replace(/\\u002F/g, "/")));
+    environment.display = (func = (x: any) => x) => tap(observerOrNext => {
+      const result = func(observerOrNext);
+      console.log(`[Thread ${self.name}].display(${result})`);
+      if (result) {
+        this.localEcho.println(environment.serialize(result).replace(/\\u002F/g, "/"));
+      }
+    });
+    environment.chat = (observable: Observable<any> | Function) => pipe(
+      filter((configuration: any) => configuration.ready),
+      switchMap((configuration: any) =>
+        (typeof observable === "function" ? observable(configuration.message) : observable).pipe(tap(next => configuration.connection.send(next))))
+    );
     environment.randomBetween = (max = 0, min = 10) => Math.floor(Math.random() * (max - min + 1)) + min;
     environment.fromFetch = (input: string | Request) => fromFetch(input).pipe(
       switchMap((response: any) => response.ok ? response.json() :

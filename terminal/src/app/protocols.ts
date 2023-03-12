@@ -44,12 +44,10 @@ export class WebRTC implements Protocol {
     this.subscriber = subscriber;
     return {
       assign_signal: (state: any) => {
-        const command = `connect("WebRTC", {id: "${state.peer.id}"}).pipe(display,chat())`;
         subscriber.next(
           {
             state: `Signal assignation successful!`,
             id: `${state.peer.id}`,
-            url: `${new URL(window.location.toString()).origin}/?checkpoint=${btoa(command)}`,
             connection: this
           }
         );
@@ -96,21 +94,18 @@ export class MQTT implements Protocol {
   }
 
   connect(options: IMqttServiceOptions & { topic: string }) {
-    this.mqtt = new MqttService({
-      protocol: document.location.protocol == "https:" ? "wss" : "ws",
-      ...options,
-    });
+    this.mqtt = new MqttService(options);
     return this.mqtt?.observe(options.topic).pipe(
+      map((message) => ({
+        ready: true,
+        // @ts-ignore
+        message: globalThis.deserialize(message.payload.toString()),
+        connection: this
+      })),
       startWith({
         ready: true,
         connection: this
       }),
-      map((message) => ({
-        ready: true,
-        // @ts-ignore
-        message: JSON.parse(message.payload.toString()),
-        connection: this
-      }))
     );
   }
 }

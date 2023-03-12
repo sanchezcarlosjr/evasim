@@ -74,6 +74,7 @@ export class Shell {
           }));
         }
         worker.onerror = (event) => {
+          console.error(event);
           this.environment.dispatchEvent(new CustomEvent('localecho.println', {bubbles: true, detail: {payload: {threadId, text: event.message}}}));
           this.environment.dispatchEvent(new CustomEvent('shell.Stop', {bubbles: true, detail: {payload: {threadId}}}));
           subscriber.complete();
