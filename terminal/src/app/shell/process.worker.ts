@@ -1,7 +1,22 @@
 const window = self;
 
 import * as rx from "rxjs";
-import {catchError, filter, from, interval, map, of, range, reduce, scan, switchMap, take, tap, throwError} from "rxjs";
+import {
+  catchError,
+  delayWhen,
+  filter,
+  from,
+  interval,
+  map,
+  of, pipe,
+  range,
+  reduce,
+  scan,
+  switchMap,
+  take,
+  tap,
+  throwError
+} from "rxjs";
 import {fromFetch} from "rxjs/fetch";
 import * as jp from 'jsonpath';
 
@@ -95,25 +110,32 @@ async function generateChatGPTRequest(content: string) {
 
 class Terminal {
   clear() {
-    // @ts-ignore
-    sendMessage({event: 'terminal.clear'});
+    sendMessage({event: 'terminal.clear', payload: {
+          threadId: self.name
+    }});
   }
 
-  write(observerOrNext: string) {
-    // @ts-ignore
-    sendMessage({event: 'terminal.write', payload: observerOrNext});
+  write(text: string) {
+    sendMessage({event: 'terminal.write', payload: {
+       text,
+       threadId: self.name
+    }});
   }
 }
 
 class LocalEcho {
-  println(message: string) {
-    // @ts-ignore
-    sendMessage({event: 'localecho.println', payload: message});
+  println(text: string) {
+    sendMessage({event: 'localecho.println', payload: {
+           threadId: self.name,
+           text
+      }});
   }
 
-  printWide(message: string[] | any) {
-    // @ts-ignore
-    sendMessage({event: 'localecho.printWide', payload: message});
+  printWide(text: string[] | any) {
+    sendMessage({event: 'localecho.printWide', payload: {
+        threadId: self.name,
+        text
+      }});
   }
 }
 
@@ -136,6 +158,7 @@ class ProcessWorker {
     environment.scan = scan;
     environment.filter = filter;
     environment.range = range;
+    environment.delayWhen = delayWhen;
     environment.serialize = (obj: any) => JSON.stringify(obj);
     environment.deserialize = (code: string) => JSON.parse(code);
     environment.from = from;
@@ -153,10 +176,11 @@ class ProcessWorker {
       ),
       catchError(err => of({error: true, message: err.message}))
     );
+    environment.filterErrors = pipe(environment.display((x: {message: string}) => x.message), filter((x: {error: boolean}) => x.error));
     environment.jp = jp;
     environment.jpquery = (path: string) => map((ob: object) => jp.query(ob, path));
     environment.jpapply = (path: string, fn: (x: any) => any) => map((ob: object) => jp.apply(ob, path, fn));
-    environment.write = tap((observerOrNext: string) => this.terminal?.write(observerOrNext));
+    environment.write = (f = (x: string) => x) => tap((observerOrNext: string) => this.terminal?.write(f(observerOrNext)));
     environment.printWide =
       tap(observerOrNext => this.localEcho.printWide(Array.isArray(observerOrNext) ? observerOrNext : environment.throwError(new Error(`TypeError: The operator printWide only supports iterators. ${observerOrNext} has to be an iterator.`))));
     environment.echo = (msg: any) => of(msg).pipe(filter(x => !!x), environment.display());
@@ -201,12 +225,12 @@ const processWorker = new ProcessWorker(globalThis, new LocalEcho(),  new Termin
 // @ts-ignore
 globalThis.addEventListener('exec', (event: CustomEvent) => {
   if (!event.detail.payload) {
-    sendMessage({'event': 'complete'});
+    sendMessage({'event': 'shell.Stop', payload: {threadId: self.name}});
     return;
   }
   processWorker.exec(event.detail.payload).subscribe({
     // @ts-ignore
-    complete: () => sendMessage({'event': 'complete'})
+    complete: () => sendMessage({'event': 'shell.Stop', payload: {threadId: self.name}})
   });
 });
 

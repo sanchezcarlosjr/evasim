@@ -1,53 +1,57 @@
-import {AfterViewInit, Component, ViewChild} from '@angular/core';
-import {NgTerminal} from "ng-terminal";
-import {WebLinksAddon} from 'xterm-addon-web-links';
+import {Component, OnInit} from '@angular/core';
+import EditorJS from "@editorjs/editorjs";
 // @ts-ignore
-import LocalEchoController from 'local-echo';
-import {Shell} from "./shell/shell";
+import Header from '@editorjs/header';
+// @ts-ignore
+import List from '@editorjs/list';
+// @ts-ignore
+import Marker from '@editorjs/marker';
+import {retrieve, Shell} from "./shell/shell";
+
+// @ts-ignore
+import Checklist from '@editorjs/checklist';
+import {Cell} from "./cell";
+
 
 @Component({
   selector: 'app-root', templateUrl: './app.component.html', styleUrls: ['./app.component.css']
 })
-export class AppComponent implements AfterViewInit {
-  @ViewChild('term', {static: false}) child?: NgTerminal;
-  baseTheme = {
-    foreground: '#EBDBB2',
-    background: '#000000',
-    black: '#1E1E1D',
-    brightBlack: '#262625',
-    red: '#CE5C5C',
-    brightRed: '#FF7272',
-    green: '#5BCC5B',
-    brightGreen: '#72FF72',
-    yellow: '#CCCC5B',
-    brightYellow: '#FFFF72',
-    blue: '#5D5DD3',
-    brightBlue: '#7279FF',
-    magenta: '#BC5ED1',
-    brightMagenta: '#E572FF',
-    cyan: '#5DA5D5',
-    brightCyan: '#72F0FF',
-    white: '#F8F8F8',
-    brightWhite: '#FFFFFF'
-  };
+export class AppComponent implements OnInit {
+  editor: EditorJS | null = null;
 
-  ngAfterViewInit() {
-    const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-    const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
-    this.child?.setCols(Math.floor(vw / 9 - 2));
-    this.child?.setRows(Math.floor(vh / 15));
-    this.child?.setXtermOptions({
-      fontFamily: '"IBM Plex Mono", Menlo, monospace',
-      theme: this.baseTheme,
-      cursorBlink: true,
-      cursorStyle: 'underline',
-      logLevel: "off"
+  ngOnInit() {
+    this.editor = new EditorJS({
+      holder: 'editor-js',
+      autofocus: true,
+      data: JSON.parse(retrieve("c") || '"{}"'),
+      tools: {
+        header: {
+          class: Header,
+          inlineToolbar: ['link']
+        },
+        list: {
+          class: List,
+          inlineToolbar: ['link', 'bold']
+        },
+        marker: {
+          class: Marker
+        },
+        code: {
+          class: Cell,
+          config: {
+            language: 'javascript'
+          }
+        },
+        checklist: {
+          class: Checklist,
+          inlineToolbar: true,
+        }
+      }
     });
-    const localEcho = new LocalEchoController();
-    this.child?.underlying.loadAddon(localEcho);
-    this.child?.underlying.loadAddon(new WebLinksAddon());
-    const shell = new Shell(localEcho, this.child, window);
-    shell.start();
+    this.editor.isReady.then(() => {
+      const shell = new Shell(this.editor as EditorJS, window);
+      shell.start();
+    });
   }
 
 }
