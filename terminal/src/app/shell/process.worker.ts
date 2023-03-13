@@ -5,15 +5,16 @@ import {
   filter,
   from,
   interval,
-  map, Observable,
-  of, pipe,
+  map,
+  Observable,
+  of,
+  pipe,
   range,
   reduce,
   scan,
   switchMap,
   take,
-  tap,
-  throwError
+  tap
 } from "rxjs";
 import {fromFetch} from "rxjs/fetch";
 import * as protocols from '../protocols';
@@ -57,7 +58,7 @@ globalThis.database = {
   })
 }
 
-function prompt(text: string) {
+function requestPrompt(text: string): Promise<string|null> {
   return new Promise((resolve, reject) => {
     // @ts-ignore
     globalThis.addEventListener('prompt', (event: CustomEvent) => {
@@ -66,7 +67,10 @@ function prompt(text: string) {
       globalThis.removeEventListener('prompt', null);
     });
     // @ts-ignore
-    sendMessage({event: 'prompt', payload: text});
+    sendMessage({event: 'prompt', payload: {
+          threadId: self.name,
+          text: text ?? ""
+      }});
   });
 }
 
@@ -82,13 +86,18 @@ globalThis.throwError = (error: Error) => {
   throw error;
 }
 
-async function generateChatGPTRequest(content: string) {
+async function retrieveFromCache(key: string) {
   // @ts-ignore
-  const token = await globalThis.database.retrieve("token-OpenIA") ?? await globalThis.database.save("token-OpenIA", await prompt("Write your OpenAI Token. We save tokens on your local storage as token-OpenIA."));
+  const token = await globalThis.database.retrieve(key) ?? await globalThis.database.save(key, await requestPrompt(`Write your ${key}. We save tokens on your local storage.`));
   if (!token) {
     //@ts-ignore
-    globalThis.throwError(new ReferenceError('token-OpenIA is not defined. You have got to save a token for the Open IA API REST. Check out https://openai.com/product.'));
+    globalThis.throwError(new ReferenceError(`${key} is not defined.`));
   }
+  return token;
+}
+
+async function generateChatGPTRequest(content: string) {
+  const token = await retrieveFromCache("token-OpenIA");
   return new Request('https://api.openai.com/v1/chat/completions',
     {
       'method': 'POST',
@@ -109,38 +118,46 @@ async function generateChatGPTRequest(content: string) {
 
 class Terminal {
   clear() {
-    sendMessage({event: 'terminal.clear', payload: {
-          threadId: self.name
-    }});
+    sendMessage({
+      event: 'terminal.clear', payload: {
+        threadId: self.name
+      }
+    });
   }
 
   write(text: string) {
-    sendMessage({event: 'terminal.write', payload: {
-       text,
-       threadId: self.name
-    }});
+    sendMessage({
+      event: 'terminal.write', payload: {
+        text,
+        threadId: self.name
+      }
+    });
   }
 }
 
 class LocalEcho {
   println(text: string) {
-    sendMessage({event: 'localecho.println', payload: {
-           threadId: self.name,
-           text
-      }});
+    sendMessage({
+      event: 'localecho.println', payload: {
+        threadId: self.name,
+        text
+      }
+    });
   }
 
   printWide(text: string[] | any) {
-    sendMessage({event: 'localecho.printWide', payload: {
+    sendMessage({
+      event: 'localecho.printWide', payload: {
         threadId: self.name,
         text
-      }});
+      }
+    });
   }
 }
 
 class ProcessWorker {
   constructor(private environment: any, private localEcho: LocalEcho, private terminal: Terminal) {
-    Object.defineProperty(environment, 'clear', {'get': () => of([true]).pipe(tap(_ => this.terminal.clear()))});
+    environment.clear = tap(() => this.terminal.clear());
     Object.defineProperty(environment, 'help', {
       'get': () => from([
         'clear - clears the terminal',
@@ -160,7 +177,6 @@ class ProcessWorker {
     environment.delayWhen = delayWhen;
     environment.serialize = (obj: any) => {
       try {
-        console.log(obj);
         return JSON.stringify(obj);
       } catch (e) {
         return obj.toString();
@@ -180,26 +196,62 @@ class ProcessWorker {
     environment.take = take;
     environment.switchMap = switchMap;
     environment.rx = rx;
+    environment.sendEmail = (options?: { provider?: string, to: string, from: string, subject: string }) =>
+      switchMap(message =>
+            from(retrieveFromCache("token-Sendgrid")).pipe(
+               switchMap(token => fromFetch('https://api.sendgrid.com/v3/mail/send', {
+                 method: 'POST',
+                 headers: {
+                   Authorization: `Bearer ${token}`
+                 },
+                 body: JSON.stringify({
+                   personalizations: [
+                     {
+                       to: [
+                         {
+                           email: options?.to ?? ""
+                         },
+                       ],
+                     },
+                   ],
+                   from: {
+                     email: options?.from ?? ""
+                   },
+                   subject: options?.subject ?? "[EvaNotebook] Data from your notebook",
+                   content: [
+                     {
+                       type: 'text/plain',
+                       value: message
+                     }
+                   ],
+                 })
+               })),
+              map(_ => message)
+            )
+        )
     environment.display = (func = (x: any) => x) => tap(observerOrNext => {
       const result = func(observerOrNext);
-      console.log(`[Thread ${self.name}].display(${result})`);
       if (result) {
         this.localEcho.println(environment.serialize(result).replace(/\\u002F/g, "/"));
       }
     });
+    environment.prompt = (text: string) => switchMap(_ => from(requestPrompt(text)));
     environment.chat = (observable: Observable<any> | Function) => pipe(
       filter((configuration: any) => configuration.ready),
       switchMap((configuration: any) =>
         (typeof observable === "function" ? observable(configuration.message) : observable).pipe(tap(next => configuration.connection.send(next))))
     );
     environment.randomBetween = (max = 0, min = 10) => Math.floor(Math.random() * (max - min + 1)) + min;
-    environment.fromFetch = (input: string | Request) => fromFetch(input).pipe(
+    environment.fromFetch = (input: string | Request, init?: RequestInit | undefined) => fromFetch(input,init).pipe(
       switchMap((response: any) => response.ok ? response.json() :
-        of({error: true, message: `The HTTP status is ${response.status}. For more information consult https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.`})
+        of({
+          error: true,
+          message: `The HTTP status is ${response.status}. For more information consult https://developer.mozilla.org/en-US/docs/Web/HTTP/Status.`
+        })
       ),
       catchError(err => of({error: true, message: err.message}))
     );
-    environment.filterErrors = pipe(environment.display((x: {message: string}) => x.message), filter((x: {error: boolean}) => x.error));
+    environment.filterErrors = pipe(environment.display((x: { message: string }) => x.message), filter((x: { error: boolean }) => x.error));
     environment.jp = jp;
     environment.jpquery = (path: string) => map((ob: object) => jp.query(ob, path));
     environment.jpapply = (path: string, fn: (x: any) => any) => map((ob: object) => jp.apply(ob, path, fn));
@@ -209,13 +261,16 @@ class ProcessWorker {
     environment.echo = (msg: any) => of(msg).pipe(filter(x => !!x), environment.display());
     environment.publishMQTT =
       (topic: string, options = {publication: {}, message: {}}) =>
-        map((text: string) => ({topic, message: environment.serialize({text, ...options.message}), ...options.publication}));
+        map((text: string) => ({
+          topic,
+          message: environment.serialize({text, ...options.message}), ...options.publication
+        }));
     environment.sayHermes = environment.publishMQTT("hermes/tts/say");
     environment.gpt = switchMap((message: string) =>
       from(generateChatGPTRequest(message)).pipe(switchMap(request => environment.fromFetch(request)
         .pipe(
           tap(next => console.log("ChatGPT Fetch", JSON.stringify(next))),
-          tap((x: {error: boolean}) => {
+          tap((x: { error: boolean }) => {
             if (x.error) {
               // @ts-ignore
               globalThis.database.removeItem("token-OpenIA");
@@ -243,7 +298,7 @@ class ProcessWorker {
   }
 }
 
-const processWorker = new ProcessWorker(globalThis, new LocalEcho(),  new Terminal());
+const processWorker = new ProcessWorker(globalThis, new LocalEcho(), new Terminal());
 
 // @ts-ignore
 globalThis.addEventListener('exec', (event: CustomEvent) => {

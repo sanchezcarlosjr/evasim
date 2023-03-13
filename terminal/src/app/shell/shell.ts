@@ -1,5 +1,6 @@
 import {from, interval, MonoTypeOperatorFunction, Observable, Subscription, switchMap, tap} from 'rxjs';
 import EditorJS, {OutputData} from "@editorjs/editorjs";
+import Swal from 'sweetalert2'
 
 export function save(query: string, expression: string) {
   const url = new URL(window.location.toString());
@@ -18,9 +19,22 @@ enum JobStatus {
 }
 
 export class Shell {
+  private Toast = Swal.mixin({
+    toast: true,
+    position: 'top-right',
+    iconColor: 'white',
+    customClass: {
+      popup: 'colored-toast'
+    },
+    showConfirmButton: false,
+    timer: 1200,
+    timerProgressBar: true
+  })
   private jobs = new Map<string, {worker: Worker, code: string, status: number, data: {}, subscription: Subscription; }>();
   constructor(private editor: EditorJS, private environment: any) {
-    environment.addEventListener('terminal.clear', () => {});
+    environment.addEventListener('terminal.clear', (event: CustomEvent) => {
+      this.editor.blocks.getById(event.detail.payload.threadId)?.call('resetOutput');
+    });
     environment.addEventListener('shell.Fork', (event: CustomEvent) => {
       this.editor.blocks.insert('code', {code: event.detail.code, language: 'javascript'});
       this.editor.blocks.getBlockByIndex(this.editor.blocks.getCurrentBlockIndex())?.call('dispatchShellRun');
@@ -52,7 +66,12 @@ export class Shell {
     });
     environment.addEventListener('speak', (event: CustomEvent) =>  window.speechSynthesis.speak(new SpeechSynthesisUtterance(event.detail.payload.toString())));
     environment.addEventListener('localecho.printWide', (event: CustomEvent) => {});
-    environment.addEventListener('prompt', (event: CustomEvent) => event.detail.port.postMessage({event: 'prompt', payload: prompt(event.detail.payload)}));
+    environment.addEventListener('prompt', (event: CustomEvent) =>
+      this.editor.blocks.getById(event.detail.payload.threadId)?.call('prompt', event.detail.payload.text)
+    );
+    environment.addEventListener('shell.Prompt', (event: CustomEvent) =>
+      this.jobs.get(event.detail.payload.threadId)?.worker?.postMessage({event: 'prompt', payload: event.detail.payload.response})
+    );
     environment.addEventListener('localStorage.getItem', (event: CustomEvent) => event.detail.port.postMessage({event: 'localStorage.getItem', payload: localStorage.getItem(event.detail.payload.key)}));
     environment.addEventListener('localStorage.setItem', (event: CustomEvent) => localStorage.setItem(event.detail.payload.key, event.detail.payload.value));
     environment.addEventListener('localStorage.removeItem', (event: CustomEvent) => localStorage.removeItem(event.detail.payload.key));
@@ -64,7 +83,9 @@ export class Shell {
       worker,
       observable: new Observable((subscriber) => {
         worker.onmessage = (event) => {
-          subscriber.next(event);
+          if (event.data.event === "complete") {
+            subscriber.complete();
+          }
           this.environment.dispatchEvent(new CustomEvent(event.data.event, {
             bubbles: true,
             detail: {
@@ -84,15 +105,26 @@ export class Shell {
     }
   }
 
+  private async checkpoint() {
+    const outputData = await this.editor.save();
+    if (outputData.blocks.length === 0) {
+      return;
+    }
+    this.Toast.fire({
+      icon: 'info',
+      title: 'Saving...'
+    })
+    save('c', JSON.stringify(outputData));
+  }
+
   start() {
     this.environment.addEventListener('keydown', (keyboardEvent: KeyboardEvent) => {
       if (keyboardEvent.key === "s" && keyboardEvent.ctrlKey) {
-         keyboardEvent.preventDefault();
-         this.editor.save();
+        keyboardEvent.preventDefault();
+        this.checkpoint();
       }
     });
-    interval(1000*35).pipe(switchMap(_ => this.editor.save()))
-      .subscribe((outputData: OutputData) => save('c', JSON.stringify(outputData)));
+    interval(1000*35).subscribe(() => this.checkpoint());
   }
 
 }

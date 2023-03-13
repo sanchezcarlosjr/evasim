@@ -20,6 +20,7 @@ export class Cell extends EditorjsCodeflask {
   readonly id: string = "";
   private cell: HTMLElement | undefined;
   private subscription: Subscription | undefined;
+  private data: any;
 
   constructor(obj: any) {
     super(obj);
@@ -34,37 +35,39 @@ export class Cell extends EditorjsCodeflask {
 
     // @ts-ignore
     this.data.output = (obj.data.output === undefined) ? "" : obj.data.output;
+
   }
 
   save(obj: any) {
     return {
       ...super.save(obj),
       //@ts-ignore
-      output: this.cell.children[2].innerHTML
+      output: this.cell.children[1].innerHTML
     };
   }
 
   run() {
     const loader: string[] = ['🕛', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚'];
-    this.subscription = interval(400).pipe(map((time: number) => time % 12))
+    this.subscription = interval(150).pipe(map((time: number) => time % 12))
       // @ts-ignore
-      .subscribe(index => this.cell.children[1].innerHTML = loader[index])
+      .subscribe(index => this.cell.children[0].children[0].children[2].innerHTML = loader[index])
   }
 
   stop() {
     this.subscription?.unsubscribe();
-    // @ts-ignore
-    this.cell.children[1].innerHTML = "";
+    //@ts-ignore
+    this.cell.children[0].children[0].children[2].innerHTML  = "";
   }
 
   resetOutput() {
     //@ts-ignore
-    this.cell.children[2].innerHTML = "";
+    this.cell.children[1].innerHTML = "";
+
   }
 
   write(text: string) {
     //@ts-ignore
-    this.cell.children[2].innerHTML += text;
+    this.cell.children[1].innerHTML += text;
   }
 
   println(text: any) {
@@ -75,6 +78,28 @@ export class Cell extends EditorjsCodeflask {
   clear() {
     this.stop();
     this.resetOutput();
+  }
+
+  prompt(placeholder: string) {
+    const input = document.createElement('input');
+    input.classList.add('prompt');
+    this.cell?.appendChild(input);
+    input.placeholder = placeholder;
+    input.type = "text";
+    input.addEventListener('keydown', (event) => {
+      if (event.key === "Enter") {
+        window.dispatchEvent(new CustomEvent('shell.Prompt', {
+          bubbles: true, detail: {
+            payload: {
+              // @ts-ignore
+              response: input.value,
+              threadId: this.id
+            }
+          }
+        }));
+        this.cell?.removeChild(input);
+      }
+    });
   }
 
   dispatchShellRun() {
@@ -107,15 +132,15 @@ export class Cell extends EditorjsCodeflask {
     editor.classList.add('editor');
     editor.appendChild(element);
     this.cell.appendChild(editor);
-    this.cell.append(document.createElement('div'));
-    this.cell.children[1].classList.add('progress');
-    const output = document.createElement('pre');
+    element.append(document.createElement('div'));
+    element.children[2].classList.add('progress');
+    const output = document.createElement('samp');
     output.classList.add('output');
     this.cell.appendChild(output);
     //@ts-ignore
     output.innerHTML = this.data.output;
 
-    element.addEventListener('keydown', (keyboardEvent: KeyboardEvent) => {
+    this.cell.addEventListener('keydown', (keyboardEvent: KeyboardEvent) => {
       if (keyboardEvent.key === "m" && keyboardEvent.ctrlKey && keyboardEvent.altKey) {
         keyboardEvent.preventDefault();
         this.dispatchShellRun();
