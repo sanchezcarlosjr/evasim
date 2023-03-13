@@ -22,7 +22,6 @@ import {unsplash_access_key} from "../env/env.prod";
 // @ts-ignore
 import BreakLine from 'editorjs-break-line';
 
-
 @Component({
   selector: 'app-root', templateUrl: './app.component.html', styleUrls: ['./app.component.css']
 })

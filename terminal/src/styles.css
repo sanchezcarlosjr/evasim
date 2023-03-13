@@ -54,17 +54,16 @@ body {
 }
 
 .progress {
-  font-size: 1em;
   position: absolute;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
   top: 0;
   left: 0;
-  padding: 11px 4px;
-  line-height: 20px;
+  padding: 23px 17px;
 }
 
+.cdx-loader:before {
+  width: 11px;
+  height: 11px;
+}
 .hide{
   display: none !important;
 }
@@ -239,9 +238,9 @@ body {
 }
 
 .prompt {
-  width: 99%;
+  width: 100%;
   line-height: 1.2em;
-  padding: 0.2em 0;
+  padding: 0.2em 0.5em;
   margin: 0.3em 0;
   font-size: 0.7em;
 }
@@ -252,4 +251,11 @@ body {
 
 .codeflask__flatten {
   position: absolute!important;
+}
+
+.getting-started {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
 }

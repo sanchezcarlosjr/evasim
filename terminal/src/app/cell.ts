@@ -33,16 +33,14 @@ export class Cell extends EditorjsCodeflask {
   }
 
   run() {
-    const loader: string[] = ['🕛', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚'];
-    this.subscription = interval(150).pipe(map((time: number) => time % 12))
-      // @ts-ignore
-      .subscribe(index => this.cell.children[0].children[0].children[2].innerHTML = loader[index])
+    // @ts-ignore
+    this.cell.children[0].children[0].children[2].classList.add('cdx-loader');
   }
 
   stop() {
     this.subscription?.unsubscribe();
     //@ts-ignore
-    this.cell.children[0].children[0].children[2].innerHTML  = "";
+    this.cell.children[0].children[0].children[2].classList.remove('cdx-loader');
     for (let i=(this.cell?.children.length ?? 0)-1; i > 1; i--) {
       this.cell?.removeChild(this.cell?.children[i]);
     }
@@ -64,7 +62,7 @@ export class Cell extends EditorjsCodeflask {
 
   prompt(placeholder: string) {
     const input = document.createElement('input');
-    input.classList.add('prompt');
+    input.classList.add('prompt', 'cdx-input');
     this.cell?.appendChild(input);
     input.placeholder = placeholder;
     input.type = "text";
