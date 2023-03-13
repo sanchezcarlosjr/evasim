@@ -196,10 +196,10 @@ class ProcessWorker {
     environment.take = take;
     environment.switchMap = switchMap;
     environment.rx = rx;
-    environment.sendEmail = (options?: { provider?: string, to: string, from: string, subject: string }) =>
+    environment.sendEmail = (options?: { provider?: string, proxy?:string, to: string, from: string, subject: string }) =>
       switchMap(message =>
             from(retrieveFromCache("token-Sendgrid")).pipe(
-               switchMap(token => fromFetch('https://api.sendgrid.com/v3/mail/send', {
+               switchMap(token => fromFetch(`${options?.proxy ?? ""}${encodeURIComponent("https://api.sendgrid.com/v3/mail/send")}` , {
                  method: 'POST',
                  headers: {
                    Authorization: `Bearer ${token}`
