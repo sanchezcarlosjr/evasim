@@ -65,7 +65,8 @@ export class AppComponent implements OnInit {
           inlineToolbar: true,
         },
         embed: {
-          class: Embed
+          class: Embed,
+          inlineToolbar: true,
         },
         image: {
           class: InlineImage,
