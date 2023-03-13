@@ -23,7 +23,7 @@ body {
 
 @font-face {
   font-family: "Fira Code Regular";
-  src: url(/assets/fonts/FiraCode-Regular.woff);
+  src: url(/terminal/assets/fonts/FiraCode-Regular.woff);
 }
 
 * {
@@ -248,4 +248,8 @@ body {
 
 .editorjs-codeFlask_Wrapper {
   margin-bottom: 0 !important;
+}
+
+.codeflask__flatten {
+  position: absolute!important;
 }

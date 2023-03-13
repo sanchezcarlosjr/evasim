@@ -1,6 +1,6 @@
 import * as rx from "rxjs";
 import {
-  catchError,
+  catchError, delay,
   delayWhen,
   filter,
   from,
@@ -11,8 +11,8 @@ import {
   pipe,
   range,
   reduce,
-  scan,
-  switchMap,
+  scan, startWith,
+  switchMap, switchScan,
   take,
   tap
 } from "rxjs";
@@ -155,6 +155,8 @@ class LocalEcho {
   }
 }
 
+const identity = (x: any) => x;
+
 class ProcessWorker {
   constructor(private environment: any, private localEcho: LocalEcho, private terminal: Terminal) {
     environment.clear = tap(() => this.terminal.clear());
@@ -192,6 +194,9 @@ class ProcessWorker {
     environment.from = from;
     environment.of = of;
     environment.interval = interval;
+    environment.startWith = startWith;
+    environment.switchScan = switchScan;
+    environment.delay = delay;
     environment.speak = tap((text: string) => speechSynthesis.speak(text));
     environment.take = take;
     environment.switchMap = switchMap;
@@ -229,13 +234,11 @@ class ProcessWorker {
               map(_ => message)
             )
         )
-    environment.display = (func = (x: any) => x) => tap(observerOrNext => {
-      const result = func(observerOrNext);
-      if (result) {
-        this.localEcho.println(environment.serialize(result).replace(/\\u002F/g, "/"));
-      }
-    });
-    environment.prompt = (text: string) => switchMap(_ => from(requestPrompt(text)));
+    environment.display = (func = identity) => tap(observerOrNext =>
+      this.localEcho.println(environment.serialize(func(observerOrNext)).replace(/\\u002F/g, "/"))
+    );
+    environment.input = (placeholder: string) => from(requestPrompt(placeholder));
+    environment.prompt = (placeholder: string) => switchMap(_ => environment.input(placeholder));
     environment.chat = (observable: Observable<any> | Function) => pipe(
       filter((configuration: any) => configuration.ready),
       switchMap((configuration: any) =>
@@ -255,7 +258,7 @@ class ProcessWorker {
     environment.jp = jp;
     environment.jpquery = (path: string) => map((ob: object) => jp.query(ob, path));
     environment.jpapply = (path: string, fn: (x: any) => any) => map((ob: object) => jp.apply(ob, path, fn));
-    environment.write = (f = (x: string) => x) => tap((observerOrNext: string) => this.terminal?.write(f(observerOrNext)));
+    environment.write = (f = identity) => tap((observerOrNext: string) => this.terminal?.write(f(observerOrNext)));
     environment.printWide =
       tap(observerOrNext => this.localEcho.printWide(Array.isArray(observerOrNext) ? observerOrNext : environment.throwError(new Error(`TypeError: The operator printWide only supports iterators. ${observerOrNext} has to be an iterator.`))));
     environment.echo = (msg: any) => of(msg).pipe(filter(x => !!x), environment.display());

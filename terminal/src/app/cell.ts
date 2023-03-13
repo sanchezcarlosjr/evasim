@@ -2,20 +2,6 @@ import {interval, map, Subscription} from "rxjs";
 // @ts-ignore
 import EditorjsCodeflask from '@calumk/editorjs-codeflask';
 
-function shellListener(button: HTMLElement, cell: Cell, tune: {event: string}) {
-  button.classList.toggle('cdx-settings-button--active');
-  window.dispatchEvent(new CustomEvent(`${tune.event}`, {
-    bubbles: true, detail: {
-      payload: {
-        // @ts-ignore
-        code: cell.data.editorInstance.code,
-        threadId: cell.id
-      }
-    }
-  }));
-}
-
-
 export class Cell extends EditorjsCodeflask {
   readonly id: string = "";
   private cell: HTMLElement | undefined;
@@ -57,12 +43,14 @@ export class Cell extends EditorjsCodeflask {
     this.subscription?.unsubscribe();
     //@ts-ignore
     this.cell.children[0].children[0].children[2].innerHTML  = "";
+    for (let i=(this.cell?.children.length ?? 0)-1; i > 1; i--) {
+      this.cell?.removeChild(this.cell?.children[i]);
+    }
   }
 
-  resetOutput() {
+  clear() {
     //@ts-ignore
     this.cell.children[1].innerHTML = "";
-
   }
 
   write(text: string) {
@@ -72,12 +60,6 @@ export class Cell extends EditorjsCodeflask {
 
   println(text: any) {
     this.write(text + "\n");
-  }
-
-
-  clear() {
-    this.stop();
-    this.resetOutput();
   }
 
   prompt(placeholder: string) {
@@ -103,6 +85,8 @@ export class Cell extends EditorjsCodeflask {
   }
 
   dispatchShellRun() {
+    this.clear();
+    this.dispatchShellStop();
     window.dispatchEvent(new CustomEvent('shell.Run', {
       bubbles: true, detail: {
         payload: {
@@ -112,6 +96,7 @@ export class Cell extends EditorjsCodeflask {
         }
       }
     }));
+    this.run();
   }
 
   dispatchShellStop() {
@@ -145,7 +130,8 @@ export class Cell extends EditorjsCodeflask {
         keyboardEvent.preventDefault();
         this.dispatchShellRun();
       }
-      if (keyboardEvent.key === "c" && keyboardEvent.ctrlKey) {
+      if (keyboardEvent.key === "c" && keyboardEvent.ctrlKey && keyboardEvent.altKey) {
+        keyboardEvent.preventDefault();
         this.dispatchShellStop();
       }
     }, false);
@@ -156,12 +142,12 @@ export class Cell extends EditorjsCodeflask {
     const shellOptions: [{ listener: (button: HTMLElement, cell: Cell, tune: { event: string }) => void; cmd: string; event: string }, { listener: (button: HTMLElement, cell: Cell, tune: { event: string }) => void; cmd: string; event: string }, { listener: (button: HTMLElement, cell: Cell, tune: { event: string }) => void; cmd: string; event: string }] = [
       {
         cmd: "Run (Ctrl+Alt+M)",
-        listener: shellListener,
+        listener: () => this.dispatchShellRun(),
         event: "shell.Run",
       },
       {
-        cmd: "Stop (Ctrl+C)",
-        listener: shellListener,
+        cmd: "Stop (Ctrl+Alt+C)",
+        listener: () => this.dispatchShellStop(),
         event: "shell.Stop",
       },
       {

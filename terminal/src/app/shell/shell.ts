@@ -33,15 +33,13 @@ export class Shell {
   private jobs = new Map<string, {worker: Worker, code: string, status: number, data: {}, subscription: Subscription; }>();
   constructor(private editor: EditorJS, private environment: any) {
     environment.addEventListener('terminal.clear', (event: CustomEvent) => {
-      this.editor.blocks.getById(event.detail.payload.threadId)?.call('resetOutput');
+      this.editor.blocks.getById(event.detail.payload.threadId)?.call('clear');
     });
     environment.addEventListener('shell.Fork', (event: CustomEvent) => {
       this.editor.blocks.insert('code', {code: event.detail.code, language: 'javascript'});
       this.editor.blocks.getBlockByIndex(this.editor.blocks.getCurrentBlockIndex())?.call('dispatchShellRun');
     });
     environment.addEventListener('shell.Run', (event: CustomEvent) => {
-      this.editor.blocks.getById(event.detail.payload.threadId)?.call('resetOutput');
-      this.editor.blocks.getById(event.detail.payload.threadId)?.call('run');
       const {worker, observable} = this.fork(event.detail.payload.code, event.detail.payload.threadId);
       this.jobs.set(event.detail.payload.threadId, {
         worker,
@@ -83,7 +81,7 @@ export class Shell {
       worker,
       observable: new Observable((subscriber) => {
         worker.onmessage = (event) => {
-          if (event.data.event === "complete") {
+          if (event.data.event === "shell.Stop") {
             subscriber.complete();
           }
           this.environment.dispatchEvent(new CustomEvent(event.data.event, {

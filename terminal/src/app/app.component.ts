@@ -33,6 +33,8 @@ export class AppComponent implements OnInit {
     this.editor = new EditorJS({
       holder: 'editor-js',
       autofocus: true,
+      // @ts-ignore
+      logLevel: "ERROR",
       data: JSON.parse(retrieve("c") || '"{}"'),
       tools: {
         header: {
