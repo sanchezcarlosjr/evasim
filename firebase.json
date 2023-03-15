@@ -9,10 +9,6 @@
     ],
     "rewrites": [
 	    {
-		    "source": "/terminal",
-		    "destination": "/terminal/index.html"
-	    },
-	    {
 		    "source": "**",
 		    "destination": "/index.html"
 	    }
